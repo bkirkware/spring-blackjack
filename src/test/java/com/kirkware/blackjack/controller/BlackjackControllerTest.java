@@ -1,15 +1,18 @@
 package com.kirkware.blackjack.controller;
 
 import com.kirkware.blackjack.dto.GameStateResponse;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kirkware.blackjack.domain.GameStatus;
+import tools.jackson.databind.ObjectMapper;
 import com.kirkware.blackjack.service.GameService;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
+import org.springframework.web.context.WebApplicationContext;
 
 import java.util.UUID;
 
@@ -18,10 +21,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
-@AutoConfigureMockMvc
 class BlackjackControllerTest {
 
-    @Autowired
     private MockMvc mockMvc;
 
     @Autowired
@@ -29,6 +30,14 @@ class BlackjackControllerTest {
 
     @Autowired
     private GameService gameService;
+
+    @Autowired
+    private WebApplicationContext context;
+
+    @BeforeEach
+    void setup() {
+        mockMvc = MockMvcBuilders.webAppContextSetup(context).build();
+    }
 
     // Helper: create a game and return the game ID
     private UUID createGame() throws Exception {
@@ -51,7 +60,7 @@ class BlackjackControllerTest {
                 .andExpect(jsonPath("$.playerHand.cards.length()").value(2))
                 .andExpect(jsonPath("$.dealerHand.visibleCards").isArray())
                 .andExpect(jsonPath("$.dealerHand.visibleCards.length()").value(1))
-                .andExpect(jsonPath("$.dealerHand.isRevealed").value(false))
+                .andExpect(jsonPath("$.dealerHand.revealed").value(false))
                 .andExpect(jsonPath("$.stats.wins").value(0))
                 .andExpect(jsonPath("$.stats.losses").value(0))
                 .andExpect(jsonPath("$.stats.pushes").value(0))
@@ -111,7 +120,7 @@ class BlackjackControllerTest {
 
         GameStateResponse response = objectMapper.readValue(
                 result.getResponse().getContentAsString(), GameStateResponse.class);
-        assertThat(response.getStatus()).isEqualTo("ROUND_OVER");
+        assertThat(response.getStatus()).isEqualTo(GameStatus.ROUND_OVER);
         assertThat(response.getDealerHand().isRevealed()).isTrue();
         assertThat(response.getRoundResult().getOutcome()).isNotNull();
         assertThat(response.getRoundResult().getExplanation()).isNotEmpty();
@@ -141,7 +150,7 @@ class BlackjackControllerTest {
                 result.getResponse().getContentAsString(), GameStateResponse.class);
         assertThat(response.getPlayerHand().getCards()).hasSize(2);
         assertThat(response.getStats().getRoundsPlayed()).isEqualTo(2);
-        assertThat(response.getStatus()).isIn("PLAYER_TURN", "ROUND_OVER");
+        assertThat(response.getStatus()).isIn(GameStatus.PLAYER_TURN, GameStatus.ROUND_OVER);
     }
 
     @Test
