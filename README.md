@@ -41,6 +41,56 @@ Health check: `curl http://localhost:8080/actuator/health`
 ./mvnw test
 ```
 
+## Deploy to Cloud Foundry
+
+### Prerequisites
+- [Cloud Foundry CLI](https://docs.cloudfoundry.org/cf-cli/) installed
+- Access to a Cloud Foundry deployment (e.g., Pivotal Cloud Foundry, VMware Tanzu Application Service)
+- Logged in via `cf login`
+
+### Deploy
+
+1. **Package the application** (if not already built):
+   ```bash
+   ./mvnw clean package -DskipTests
+   ```
+
+2. **Push to Cloud Foundry**:
+   ```bash
+   cf push
+   ```
+
+   The `manifest.yml` configures the app with:
+   - A random route (change `random-route: false` and set a `hosts`/`domain` for a fixed URL)
+   - 512 MB memory and 1 GB disk quota
+   - HTTP health check on `/actuator/health`
+   - 180-second startup timeout
+
+3. **Verify the deployment**:
+   ```bash
+   cf apps
+   cf logs spring-blackjack --recent
+   ```
+
+4. **Access the app**:
+   ```bash
+   cf app spring-blackjack
+   ```
+   Note the URL shown under `urls` and use it in place of `http://localhost:8080` for all API calls.
+
+### Customizing the Manifest
+
+Edit `manifest.yml` before pushing to adjust:
+
+- **`memory`**: Increase if you encounter OutOfMemoryError (e.g., `1G`)
+- **`disk_quota`**: Adjust for larger log retention or uploads
+- **`instances`**: Scale horizontally (e.g., `instances: 2`) — note that game state is in-memory, so scaling beyond 1 instance may cause session inconsistencies
+- **`env`**: Add environment variables, e.g., JVM options:
+  ```yaml
+  env:
+    JBP_CONFIG_OPEN_JDK_JRE: '{ jre: { version: 21.+ } }'
+  ```
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
