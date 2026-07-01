@@ -71,27 +71,38 @@ public class ResponseMapper {
 
         if (isRevealed) {
             // Show all dealer cards
-            info.setVisibleCards(formatCards(dealerHand.getCards()));
+            List<String> allCards = formatCards(dealerHand.getCards());
+            info.setVisibleCards(allCards);
             info.setVisibleValue(dealerHand.value());
-            info.setFullCards(formatCards(dealerHand.getCards()));
+            info.setFullCards(allCards);
             info.setFullValue(dealerHand.value());
         } else {
             // Hide the second card (hole card)
-            List<String> visible = new ArrayList<>();
-            if (!dealerHand.getCards().isEmpty()) {
-                visible.add(dealerHand.getCards().get(0).display());
-            }
-            info.setVisibleCards(visible);
-            info.setVisibleValue(visible.isEmpty() ? 0 : new Hand(visible.contains("?") ? List.of() : List.of(dealerHand.getCards().get(0))).value());
+            List<Card> cards = dealerHand.getCards();
+            if (cards.isEmpty()) {
+                info.setVisibleCards(List.of());
+                info.setVisibleValue(0);
+                info.setFullCards(List.of());
+                info.setFullValue(0);
+            } else {
+                // Visible: only first card
+                info.setVisibleCards(List.of(cards.get(0).display()));
+                Hand visibleHand = new Hand();
+                visibleHand.addCard(cards.get(0));
+                info.setVisibleValue(visibleHand.value());
 
-            // Show placeholder for hidden card
-            List<String> hidden = new ArrayList<>();
-            hidden.add(dealerHand.getCards().get(0).display());
-            for (int i = 1; i < dealerHand.size(); i++) {
-                hidden.add(Card.hiddenDisplay());
+                // Full: first card + placeholders for hidden cards
+                List<String> hidden = new ArrayList<>();
+                for (int i = 0; i < cards.size(); i++) {
+                    if (i == 0) {
+                        hidden.add(cards.get(i).display());
+                    } else {
+                        hidden.add(Card.hiddenDisplay());
+                    }
+                }
+                info.setFullCards(hidden);
+                info.setFullValue(0); // Unknown until revealed
             }
-            info.setFullCards(hidden);
-            info.setFullValue(0);
         }
 
         return info;
