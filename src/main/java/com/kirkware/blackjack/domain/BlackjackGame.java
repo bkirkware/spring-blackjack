@@ -11,9 +11,9 @@ import java.util.UUID;
 public class BlackjackGame {
 
     private final UUID gameId;
-    private final Hand playerHand;
-    private final Hand dealerHand;
-    private final Deck deck;
+    private Hand playerHand;
+    private Hand dealerHand;
+    private Deck deck;
     private GameStatus status;
     private RoundOutcome lastOutcome;
     private String lastExplanation;
@@ -45,6 +45,10 @@ public class BlackjackGame {
 
     public Hand getDealerHand() {
         return dealerHand;
+    }
+
+    public Deck getDeck() {
+        return deck;
     }
 
     public GameStatus getStatus() {

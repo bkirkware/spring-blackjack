@@ -84,23 +84,15 @@ public class Hand {
             }
         }
 
-        // After counting all aces as 11, if we can downgrade at least one and still be <= 21,
-        // but we currently have an ace at 11 that keeps us <= 21, it's soft
+        // Downgrade aces from 11 to 1 until we're not busting
         while (total > 21 && aces > 0) {
             total -= 10;
             aces--;
         }
 
-        // Hand is soft if we still have aces that are being counted as 11
-        // This means: original aces count - downgraded count > 0
-        int originalAces = 0;
-        for (Card card : cards) {
-            if (card.getRank().isAce()) {
-                originalAces++;
-            }
-        }
-
-        return (originalAces - aces) > 0; // aces still counted as 11
+        // After the loop, aces represents how many aces are still counted as 11
+        // If any aces remain at 11, the hand is soft
+        return aces > 0;
     }
 
     /**
