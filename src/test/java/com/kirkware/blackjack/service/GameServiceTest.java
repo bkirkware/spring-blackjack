@@ -24,7 +24,9 @@ class GameServiceTest {
         assertNotNull(game);
         assertEquals(2, game.getPlayerHand().size());
         assertEquals(2, game.getDealerHand().size());
-        assertEquals(GameStatus.PLAYER_TURN, game.getStatus());
+        // Status is PLAYER_TURN normally, or ROUND_OVER if natural blackjack
+        assertTrue(game.getStatus() == GameStatus.PLAYER_TURN
+                || game.getStatus() == GameStatus.ROUND_OVER);
         assertEquals(1, game.getRoundsPlayed());
     }
 
