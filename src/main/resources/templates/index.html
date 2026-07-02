@@ -436,7 +436,7 @@
             const { playerHand, dealerHand, stats, roundResult, status, availableActions } = state;
 
             renderCards('player-cards', playerHand.cards);
-            renderCards('dealer-cards', dealerHand.isRevealed ? dealerHand.fullCards : dealerHand.fullCards);
+            renderCards('dealer-cards', dealerHand.isRevealed ? dealerHand.fullCards : dealerHand.visibleCards);
 
             document.getElementById('player-value').textContent = playerHand.value;
             document.getElementById('dealer-value').textContent = dealerHand.isRevealed ? dealerHand.fullValue : dealerHand.visibleValue;
