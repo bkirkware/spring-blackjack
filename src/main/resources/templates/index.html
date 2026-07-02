@@ -349,7 +349,7 @@
 
         function parseCard(cardStr) {
             if (cardStr === undefined || cardStr === null || cardStr === '?') return null;
-            const parts = cardStr.match(/^([♠♥♣♦])([A-K2-91]+)/);
+            const parts = cardStr.match(/^([♠♥♣♦])([A-K2-910]+)/);
             if (!parts) return null;
             let suitSymbol = parts[1];
             let rankSymbol = parts[2];
