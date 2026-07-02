@@ -1,10 +1,12 @@
 ---
 applications:
   - name: spring-blackjack
-    random-route: true
+    routes:
+    - route: blackjack.apps.tanzu.kirkware.net 
+    path: target/spring-blackjack-0.0.1-SNAPSHOT.jar
     buildpacks:
-      - java_buildpack
-    memory: 512M
+      - java_buildpack_offline
+    memory: 1G
     disk_quota: 1G
     health-check-type: http
     health-check-http-endpoint: /actuator/health
