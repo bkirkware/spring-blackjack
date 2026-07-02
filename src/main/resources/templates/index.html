@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+    <meta charset="UTF-8"/>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+    <title>Blackjack</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #0d5c2e;
+            background-image: radial-gradient(ellipse at center, #1a7a42 0%, #0d5c2e 70%);
+            color: #fff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            text-align: center;
+            padding: 20px 0 10px;
+            font-size: 2rem;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.4);
+        }
+
+        #stats-bar {
+            display: flex;
+            gap: 20px;
+            padding: 10px 20px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            margin: 10px 0 20px;
+            font-size: 0.9rem;
+        }
+
+        #stats-bar span {
+            display: flex;
+            gap: 5px;
+        }
+
+        #stats-bar .stat-value {
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        #game-area {
+            width: 100%;
+            max-width: 700px;
+            padding: 0 20px;
+        }
+
+        .hand-section {
+            margin-bottom: 20px;
+        }
+
+        .hand-label {
+            font-size: 1.1rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .hand-label .hand-value {
+            font-size: 1rem;
+            color: #ffd700;
+        }
+
+        .cards {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            min-height: 120px;
+            padding: 10px;
+            background: rgba(0,0,0,0.15);
+            border-radius: 10px;
+            border: 2px solid rgba(255,255,255,0.1);
+        }
+
+        .card {
+            width: 75px;
+            height: 110px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 5px 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            box-shadow: 2px 2px 6px rgba(0,0,0,0.4);
+            transition: transform 0.2s;
+            background: #fff;
+            color: #333;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+        }
+
+        .card.red {
+            color: #cc0000;
+        }
+
+        .card.black {
+            color: #222;
+        }
+
+        .card.hidden {
+            background: linear-gradient(135deg, #1a3a8a 25%, #1e4494 25%, #1e4494 50%, #1a3a8a 50%, #1a3a8a 75%, #1e4494 75%);
+            background-size: 20px 20px;
+            color: transparent;
+            border: 2px solid #0f2d6e;
+        }
+
+        .card .card-top {
+            text-align: left;
+            font-size: 0.95rem;
+        }
+
+        .card .card-center {
+            text-align: center;
+            font-size: 1.8rem;
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .card .card-bottom {
+            text-align: right;
+            font-size: 0.95rem;
+            transform: rotate(180deg);
+        }
+
+        #message-area {
+            text-align: center;
+            min-height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 15px 0;
+        }
+
+        #message {
+            font-size: 1.3rem;
+            font-weight: bold;
+            padding: 10px 20px;
+            border-radius: 8px;
+            display: none;
+        }
+
+        #message.visible {
+            display: inline-block;
+        }
+
+        #message.win {
+            background: rgba(0, 128, 0, 0.6);
+            color: #90ee90;
+        }
+
+        #message.lose {
+            background: rgba(128, 0, 0, 0.6);
+            color: #ff6b6b;
+        }
+
+        #message.push {
+            background: rgba(128, 128, 0, 0.6);
+            color: #ffd700;
+        }
+
+        #message.info {
+            background: rgba(0, 0, 128, 0.4);
+            color: #add8e6;
+        }
+
+        #actions {
+            display: flex;
+            gap: 12px;
+            justify-content: center;
+            margin: 15px 0 30px;
+        }
+
+        button {
+            padding: 12px 28px;
+            font-size: 1rem;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        #btn-new-game {
+            background: linear-gradient(135deg, #ffd700, #f0a500);
+            color: #1a1a2e;
+        }
+
+        #btn-hit {
+            background: linear-gradient(135deg, #2196F3, #1565C0);
+            color: #fff;
+        }
+
+        #btn-stand {
+            background: linear-gradient(135deg, #f44336, #c62828);
+            color: #fff;
+        }
+
+        #btn-new-round {
+            background: linear-gradient(135deg, #4CAF50, #2e7d32);
+            color: #fff;
+        }
+
+        .hand-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-left: 8px;
+        }
+
+        .badge-soft {
+            background: #2196F3;
+            color: #fff;
+        }
+
+        .badge-bust {
+            background: #f44336;
+            color: #fff;
+        }
+
+        .badge-blackjack {
+            background: linear-gradient(135deg, #ffd700, #f0a500);
+            color: #1a1a2e;
+        }
+
+        @media (max-width: 500px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+
+            .card {
+                width: 60px;
+                height: 90px;
+                font-size: 0.85rem;
+            }
+
+            .card .card-center {
+                font-size: 1.4rem;
+            }
+
+            #actions {
+                flex-wrap: wrap;
+            }
+
+            button {
+                padding: 10px 20px;
+                font-size: 0.9rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>&#127183; Blackjack</h1>
+
+    <div id="stats-bar">
+        <span>Wins: <span class="stat-value" id="stat-wins">0</span></span>
+        <span>Losses: <span class="stat-value" id="stat-losses">0</span></span>
+        <span>Pushes: <span class="stat-value" id="stat-pushes">0</span></span>
+        <span>Rounds: <span class="stat-value" id="stat-rounds">0</span></span>
+    </div>
+
+    <div id="game-area">
+        <div class="hand-section">
+            <div class="hand-label">
+                <span>Dealer <span id="dealer-badge"></span></span>
+                <span class="hand-value" id="dealer-value"></span>
+            </div>
+            <div class="cards" id="dealer-cards"></div>
+        </div>
+
+        <div id="message-area">
+            <div id="message"></div>
+        </div>
+
+        <div class="hand-section">
+            <div class="hand-label">
+                <span>Your Hand <span id="player-badge"></span></span>
+                <span class="hand-value" id="player-value"></span>
+            </div>
+            <div class="cards" id="player-cards"></div>
+        </div>
+    </div>
+
+    <div id="actions">
+        <button id="btn-new-game" onclick="startNewGame()">New Game</button>
+        <button id="btn-hit" onclick="hit()" disabled>Hit</button>
+        <button id="btn-stand" onclick="stand()" disabled>Stand</button>
+        <button id="btn-new-round" onclick="newRound()" disabled>New Round</button>
+    </div>
+
+    <script>
+        let currentGameId = null;
+
+        const suitSymbols = {
+            'SPADES': '♠',
+            'HEARTS': '♥',
+            'CLUBS': '♣',
+            'DIAMONDS': '♦'
+        };
+
+        const rankDisplay = {
+            'ACE': 'A',
+            'TWO': '2',
+            'THREE': '3',
+            'FOUR': '4',
+            'FIVE': '5',
+            'SIX': '6',
+            'SEVEN': '7',
+            'EIGHT': '8',
+            'NINE': '9',
+            'TEN': '10',
+            'JACK': 'J',
+            'QUEEN': 'Q',
+            'KING': 'K'
+        };
+
+        function parseCard(cardStr) {
+            if (cardStr === undefined || cardStr === null || cardStr === '?') return null;
+            const parts = cardStr.match(/^([♠♥♣♦])([A-K2-91]+)/);
+            if (!parts) return null;
+            let suitSymbol = parts[1];
+            let rankSymbol = parts[2];
+            const suitMap = {'♠': 'SPADES', '♥': 'HEARTS', '♣': 'CLUBS', '♦': 'DIAMONDS'};
+            const rankReverseMap = {'A': 'ACE', '2': 'TWO', '3': 'THREE', '4': 'FOUR', '5': 'FIVE', '6': 'SIX', '7': 'SEVEN', '8': 'EIGHT', '9': 'NINE', '10': 'TEN', 'J': 'JACK', 'Q': 'QUEEN', 'K': 'KING'};
+            const suitName = suitMap[suitSymbol] || 'HEARTS';
+            const rankName = rankReverseMap[rankSymbol] || rankSymbol;
+            const isRed = suitName === 'HEARTS' || suitName === 'DIAMONDS';
+            return { suitSymbol, rankSymbol, suitName, rankName, isRed };
+        }
+
+        function renderCard(cardStr) {
+            if (cardStr === '?') {
+                return '<div class="card hidden"><div class="card-top"></div><div class="card-center">&#9830;</div><div class="card-bottom"></div></div>';
+            }
+            const card = parseCard(cardStr);
+            if (!card) return '<div class="card">?</div>';
+            const colorClass = card.isRed ? 'red' : 'black';
+            return `<div class="card ${colorClass}">
+                <div class="card-top">${card.rankSymbol}${card.suitSymbol}</div>
+                <div class="card-center">${card.suitSymbol}</div>
+                <div class="card-bottom">${card.rankSymbol}${card.suitSymbol}</div>
+            </div>`;
+        }
+
+        function renderCards(containerId, cards) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            if (cards && cards.length > 0) {
+                cards.forEach(cardStr => {
+                    container.innerHTML += renderCard(cardStr);
+                });
+            }
+        }
+
+        function updateStats(stats) {
+            document.getElementById('stat-wins').textContent = stats.wins;
+            document.getElementById('stat-losses').textContent = stats.losses;
+            document.getElementById('stat-pushes').textContent = stats.pushes;
+            document.getElementById('stat-rounds').textContent = stats.roundsPlayed;
+        }
+
+        function showMessage(text, type) {
+            const msg = document.getElementById('message');
+            msg.textContent = text;
+            msg.className = type + ' visible';
+        }
+
+        function hideMessage() {
+            const msg = document.getElementById('message');
+            msg.className = '';
+            msg.textContent = '';
+        }
+
+        function setButtons(newGame, hit, stand, newRound) {
+            document.getElementById('btn-new-game').disabled = !newGame;
+            document.getElementById('btn-hit').disabled = !hit;
+            document.getElementById('btn-stand').disabled = !stand;
+            document.getElementById('btn-new-round').disabled = !newRound;
+        }
+
+        function updateBadges(playerHand, dealerHand) {
+            let playerBadge = '';
+            if (playerHand.isBlackjack) {
+                playerBadge = '<span class="hand-badge badge-blackjack">BLACKJACK!</span>';
+            } else if (playerHand.isBust) {
+                playerBadge = '<span class="hand-badge badge-bust">BUST</span>';
+            } else if (playerHand.isSoft) {
+                playerBadge = '<span class="hand-badge badge-soft">SOFT</span>';
+            }
+            document.getElementById('player-badge').innerHTML = playerBadge;
+
+            let dealerBadge = '';
+            if (dealerHand.isRevealed) {
+                const dealerIsBust = dealerHand.fullValue > 21;
+                if (dealerIsBust) {
+                    dealerBadge = '<span class="hand-badge badge-bust">BUST</span>';
+                }
+            }
+            document.getElementById('dealer-badge').innerHTML = dealerBadge;
+        }
+
+        function updateGame(state) {
+            const { playerHand, dealerHand, stats, roundResult, status, availableActions } = state;
+
+            renderCards('player-cards', playerHand.cards);
+            renderCards('dealer-cards', dealerHand.isRevealed ? dealerHand.fullCards : dealerHand.fullCards);
+
+            document.getElementById('player-value').textContent = playerHand.value;
+            document.getElementById('dealer-value').textContent = dealerHand.isRevealed ? dealerHand.fullValue : dealerHand.visibleValue;
+
+            updateBadges(playerHand, dealerHand);
+            updateStats(stats);
+
+            if (roundResult && roundResult.outcome) {
+                let type, text;
+                if (roundResult.outcome === 'PLAYER_WINS') {
+                    type = 'win';
+                    text = 'You win!';
+                } else if (roundResult.outcome === 'DEALER_WINS') {
+                    type = 'lose';
+                    text = 'Dealer wins.';
+                } else {
+                    type = 'push';
+                    text = "It's a push.";
+                }
+                if (roundResult.explanation) text += ' ' + roundResult.explanation;
+                showMessage(text, type);
+            } else if (status === 'PLAYER_TURN') {
+                hideMessage();
+            }
+
+            if (availableActions && availableActions.includes('HIT')) {
+                setButtons(false, true, true, false);
+            } else if (availableActions && availableActions.includes('NEW_ROUND')) {
+                setButtons(false, false, false, true);
+            } else {
+                setButtons(true, false, false, false);
+            }
+        }
+
+        async function apiCall(method, url) {
+            const response = await fetch(url, { method });
+            if (!response.ok) {
+                if (response.status === 404) {
+                    showMessage('Game not found. Start a new game.', 'info');
+                    setButtons(true, false, false, false);
+                    currentGameId = null;
+                }
+                throw new Error(`API call failed: ${response.status}`);
+            }
+            return response.json();
+        }
+
+        async function startNewGame() {
+            currentGameId = null;
+            hideMessage();
+            document.getElementById('player-cards').innerHTML = '';
+            document.getElementById('dealer-cards').innerHTML = '';
+            document.getElementById('player-value').textContent = '';
+            document.getElementById('dealer-value').textContent = '';
+            document.getElementById('player-badge').innerHTML = '';
+            document.getElementById('dealer-badge').innerHTML = '';
+            setButtons(true, false, false, false);
+
+            try {
+                const state = await apiCall('POST', '/api/blackjack/games');
+                currentGameId = state.gameId;
+                updateGame(state);
+            } catch (e) {
+                showMessage('Failed to start game.', 'info');
+            }
+        }
+
+        async function hit() {
+            if (!currentGameId) return;
+            try {
+                const state = await apiCall('POST', `/api/blackjack/games/${currentGameId}/hit`);
+                updateGame(state);
+            } catch (e) {
+                showMessage('Failed to hit.', 'info');
+            }
+        }
+
+        async function stand() {
+            if (!currentGameId) return;
+            try {
+                const state = await apiCall('POST', `/api/blackjack/games/${currentGameId}/stand`);
+                updateGame(state);
+            } catch (e) {
+                showMessage('Failed to stand.', 'info');
+            }
+        }
+
+        async function newRound() {
+            if (!currentGameId) return;
+            hideMessage();
+            try {
+                const state = await apiCall('POST', `/api/blackjack/games/${currentGameId}/rounds`);
+                updateGame(state);
+            } catch (e) {
+                showMessage('Failed to start new round.', 'info');
+            }
+        }
+    </script>
+</body>
+</html>
