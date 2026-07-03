@@ -233,6 +233,11 @@
             color: #fff;
         }
 
+        #btn-split {
+            background: linear-gradient(135deg, #9C27B0, #6A1B9A);
+            color: #fff;
+        }
+
         .hand-badge {
             display: inline-block;
             padding: 2px 8px;
@@ -318,6 +323,7 @@
         <button id="btn-new-game" onclick="startNewGame()">New Game</button>
         <button id="btn-hit" onclick="hit()" disabled>Hit</button>
         <button id="btn-stand" onclick="stand()" disabled>Stand</button>
+        <button id="btn-split" onclick="split()" disabled>Split</button>
         <button id="btn-new-round" onclick="newRound()" disabled>New Round</button>
     </div>
 
@@ -404,10 +410,11 @@
             msg.textContent = '';
         }
 
-        function setButtons(newGame, hit, stand, newRound) {
+        function setButtons(newGame, hit, stand, split, newRound) {
             document.getElementById('btn-new-game').disabled = !newGame;
             document.getElementById('btn-hit').disabled = !hit;
             document.getElementById('btn-stand').disabled = !stand;
+            document.getElementById('btn-split').disabled = !split;
             document.getElementById('btn-new-round').disabled = !newRound;
         }
 
@@ -433,7 +440,7 @@
         }
 
         function updateGame(state) {
-            const { playerHand, dealerHand, stats, roundResult, status, availableActions } = state;
+            const { playerHand, dealerHand, stats, roundResult, status, availableActions, splitHands, activeHandIndex } = state;
 
             renderCards('player-cards', playerHand.cards);
             renderCards('dealer-cards', dealerHand.isRevealed ? dealerHand.fullCards : dealerHand.visibleCards);
@@ -441,8 +448,16 @@
             document.getElementById('player-value').textContent = playerHand.value;
             document.getElementById('dealer-value').textContent = dealerHand.isRevealed ? dealerHand.fullValue : dealerHand.visibleValue;
 
+            // Show active hand info when splits are in play
+            if (splitHands && splitHands.length > 0) {
+                document.getElementById('player-value').textContent += ` (Hand ${activeHandIndex + 1} of ${splitHands.length + 1})`;
+            }
+
             updateBadges(playerHand, dealerHand);
             updateStats(stats);
+
+            // Render split hands
+            renderSplitHands(splitHands, activeHandIndex);
 
             if (roundResult && roundResult.outcome) {
                 let type, text;
@@ -463,12 +478,50 @@
             }
 
             if (availableActions && availableActions.includes('HIT')) {
-                setButtons(false, true, true, false);
+                const canSplit = availableActions.includes('SPLIT');
+                setButtons(false, true, true, canSplit, false);
             } else if (availableActions && availableActions.includes('NEW_ROUND')) {
-                setButtons(false, false, false, true);
+                setButtons(false, false, false, false, true);
             } else {
-                setButtons(true, false, false, false);
+                setButtons(true, false, false, false, false);
             }
+        }
+
+        function renderSplitHands(splitHands, activeHandIndex) {
+            // Remove any existing split hand sections
+            const existing = document.querySelectorAll('.split-hand-section');
+            existing.forEach(el => el.remove());
+
+            if (!splitHands || splitHands.length === 0) return;
+
+            const gameArea = document.getElementById('game-area');
+            const playerSection = gameArea.querySelector('.hand-section:last-of-type');
+
+            splitHands.forEach((hand, i) => {
+                const handNum = i + 2; // 2, 3, etc. (1 is the active hand)
+                const section = document.createElement('div');
+                section.className = 'hand-section split-hand-section';
+                section.innerHTML = `
+                    <div class="hand-label">
+                        <span>Hand ${handNum} <span id="split-badge-${handNum}"></span></span>
+                        <span class="hand-value" id="split-value-${handNum}">${hand.value}</span>
+                    </div>
+                    <div class="cards" id="split-cards-${handNum}"></div>
+                `;
+                playerSection.after(section);
+
+                renderCards(`split-cards-${handNum}`, hand.cards);
+
+                // Add badge
+                let badge = '';
+                if (hand.isBust) {
+                    badge = '<span class="hand-badge badge-bust">BUST</span>';
+                } else if (hand.isSoft) {
+                    badge = '<span class="hand-badge badge-soft">SOFT</span>';
+                }
+                const badgeEl = document.getElementById(`split-badge-${handNum}`);
+                if (badgeEl) badgeEl.innerHTML = badge;
+            });
         }
 
         async function apiCall(method, url) {
@@ -476,7 +529,7 @@
             if (!response.ok) {
                 if (response.status === 404) {
                     showMessage('Game not found. Start a new game.', 'info');
-                    setButtons(true, false, false, false);
+                    setButtons(true, false, false, false, false);
                     currentGameId = null;
                 }
                 throw new Error(`API call failed: ${response.status}`);
@@ -493,7 +546,7 @@
             document.getElementById('dealer-value').textContent = '';
             document.getElementById('player-badge').innerHTML = '';
             document.getElementById('dealer-badge').innerHTML = '';
-            setButtons(true, false, false, false);
+            setButtons(true, false, false, false, false);
 
             try {
                 const state = await apiCall('POST', '/api/blackjack/games');
@@ -532,6 +585,16 @@
                 updateGame(state);
             } catch (e) {
                 showMessage('Failed to start new round.', 'info');
+            }
+        }
+
+        async function split() {
+            if (!currentGameId) return;
+            try {
+                const state = await apiCall('POST', `/api/blackjack/games/${currentGameId}/split`);
+                updateGame(state);
+            } catch (e) {
+                showMessage('Failed to split.', 'info');
             }
         }
     </script>

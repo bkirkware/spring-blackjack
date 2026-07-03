@@ -6,6 +6,7 @@ package com.kirkware.blackjack.domain;
 public enum Action {
     HIT,
     STAND,
+    SPLIT,
     NEW_ROUND,
     NONE
 }

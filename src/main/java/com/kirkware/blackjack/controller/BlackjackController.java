@@ -78,6 +78,22 @@ public class BlackjackController {
     }
 
     /**
+     * POST /api/blackjack/games/{gameId}/split
+     * Player splits their hand (requires two cards of the same rank).
+     */
+    @PostMapping("/{gameId}/split")
+    public ResponseEntity<?> split(@PathVariable UUID gameId) {
+        try {
+            BlackjackGame game = gameService.split(gameId);
+            return ResponseEntity.ok(ResponseMapper.toResponse(game));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.notFound().build();
+        }
+    }
+
+    /**
      * POST /api/blackjack/games/{gameId}/rounds
      * Starts a new round in the same game session, preserving stats.
      */

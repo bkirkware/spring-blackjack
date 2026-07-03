@@ -18,6 +18,8 @@ public class GameStateResponse {
     private Stats stats;
     private RoundResult roundResult;
     private List<String> availableActions;
+    private List<PlayerHandInfo> splitHands;
+    private int activeHandIndex;
 
     public GameStateResponse() {
     }
@@ -88,6 +90,29 @@ public class GameStateResponse {
 
     public void setAvailableActions(List<String> availableActions) {
         this.availableActions = availableActions;
+    }
+
+    /**
+     * Returns additional player hands created by splitting (excludes the primary hand).
+     * null or empty when no split has occurred.
+     */
+    public List<PlayerHandInfo> getSplitHands() {
+        return splitHands;
+    }
+
+    public void setSplitHands(List<PlayerHandInfo> splitHands) {
+        this.splitHands = splitHands;
+    }
+
+    /**
+     * Returns the index of the currently active hand when splits are in play.
+     */
+    public int getActiveHandIndex() {
+        return activeHandIndex;
+    }
+
+    public void setActiveHandIndex(int activeHandIndex) {
+        this.activeHandIndex = activeHandIndex;
     }
 
     public static class PlayerHandInfo {

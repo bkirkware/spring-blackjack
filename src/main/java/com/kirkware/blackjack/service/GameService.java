@@ -74,7 +74,7 @@ public class GameService {
     }
 
     /**
-     * Player takes one more card.
+     * Player takes one more card on the currently active hand.
      */
     public BlackjackGame hit(UUID gameId) {
         BlackjackGame game = getGameOrThrow(gameId);
@@ -86,27 +86,114 @@ public class GameService {
             game.setDeck(deck);
         }
 
-        game.getPlayerHand().addCard(deck.deal());
+        Hand activeHand = game.getPlayerHand();
+        activeHand.addCard(deck.deal());
 
-        if (game.getPlayerHand().isBust()) {
-            game.setStatus(GameStatus.ROUND_OVER);
-            game.setLastOutcome(RoundOutcome.DEALER_WINS);
-            game.setLastExplanation("You busted with " + game.getPlayerHand().value() + ". Dealer wins.");
-            game.incrementLosses();
+        if (activeHand.isBust()) {
+            // Keep advancing until we find a non-busted hand or run out of hands
+            while (game.advanceToNextHand()) {
+                Hand nextHand = game.getPlayerHand();
+                if (!nextHand.isBust()) {
+                    break; // Found a playable hand, continue game
+                }
+                // Next hand is also busted, keep advancing
+            }
+            // Check if all remaining hands are busted
+            boolean allBusted = game.getPlayerHands().stream().allMatch(Hand::isBust);
+            if (allBusted) {
+                game.setStatus(GameStatus.ROUND_OVER);
+                game.setLastOutcome(RoundOutcome.DEALER_WINS);
+                game.setLastExplanation("You busted on all hands. Dealer wins.");
+                game.incrementLosses();
+            } else {
+                // Some hands are still alive, proceed to dealer
+                game.setStatus(GameStatus.DEALER_TURN);
+                dealerPlaySplit(game);
+            }
         }
 
         return game;
     }
 
     /**
-     * Player stands. Dealer plays out their hand, then determine winner.
+     * Player stands on the currently active hand. Moves to next split hand or
+     * proceeds to dealer play if this was the last hand.
      */
     public BlackjackGame stand(UUID gameId) {
         BlackjackGame game = getGameOrThrow(gameId);
         validatePlayerTurn(game);
 
+        // If there is a next split hand, advance to it
+        if (game.hasSplit() && game.advanceToNextHand()) {
+            // Keep advancing past busted hands
+            while (game.getPlayerHand().isBust() && game.advanceToNextHand()) {
+                // Continue to next hand
+            }
+            // Check if all remaining hands are busted
+            boolean allBusted = game.getPlayerHands().stream().allMatch(Hand::isBust);
+            if (allBusted) {
+                game.setStatus(GameStatus.ROUND_OVER);
+                game.setLastOutcome(RoundOutcome.DEALER_WINS);
+                game.setLastExplanation("You busted on all hands. Dealer wins.");
+                game.incrementLosses();
+            } else {
+                // There's a playable hand — continue player turn on it
+                return game;
+            }
+        }
+
+        // No more hands — dealer plays
         game.setStatus(GameStatus.DEALER_TURN);
-        dealerPlay(game);
+        if (game.hasSplit()) {
+            dealerPlaySplit(game);
+        } else {
+            dealerPlay(game);
+        }
+        return game;
+    }
+
+    /**
+     * Player splits their hand (when eligible). Creates two separate hands and
+     * deals one additional card to each.
+     */
+    public BlackjackGame split(UUID gameId) {
+        BlackjackGame game = getGameOrThrow(gameId);
+        validatePlayerTurn(game);
+
+        if (!game.canSplit()) {
+            throw new IllegalStateException("Cannot split. You need exactly two cards of the same rank and have not already split.");
+        }
+
+        Deck deck = game.getDeck();
+        if (deck.isEmpty()) {
+            deck.resetAndShuffle();
+            game.setDeck(deck);
+        }
+
+        game.performSplit(deck);
+
+        // After split, the active hand has 2 cards. If it's blackjack, check it.
+        // But standard rules: split aces only get one card. For simplicity, we allow
+        // normal play on each hand.
+
+        // Check if the first split hand busted (unlikely with 2 cards unless dealt weirdly)
+        Hand activeHand = game.getPlayerHand();
+        if (activeHand.isBust()) {
+            // Unlikely scenario but handle it
+            if (!game.advanceToNextHand()) {
+                boolean allBusted = game.getPlayerHands().stream().allMatch(Hand::isBust);
+                if (allBusted) {
+                    game.setStatus(GameStatus.ROUND_OVER);
+                    game.setLastOutcome(RoundOutcome.DEALER_WINS);
+                    game.setLastExplanation("You busted on all hands. Dealer wins.");
+                    game.incrementLosses();
+                } else {
+                    game.setStatus(GameStatus.DEALER_TURN);
+                    dealerPlaySplit(game);
+                }
+            }
+        }
+
         return game;
     }
 
@@ -120,10 +207,11 @@ public class GameService {
             throw new IllegalStateException("Game has been ended. Create a new game to continue.");
         }
 
-        // Reset deck and hands
+        // Reset deck, hands, and split state
         Deck deck = new Deck();
         deck.resetAndShuffle();
         game.setDeck(deck);
+        game.resetSplitState();
 
         Hand playerHand = new Hand();
         Hand dealerHand = new Hand();
@@ -234,6 +322,76 @@ public class GameService {
         } else {
             game.setLastOutcome(RoundOutcome.PUSH);
             game.setLastExplanation("Push! Both hands total " + playerValue + ".");
+            game.incrementPushes();
+        }
+    }
+
+    /**
+     * Dealer plays and then evaluates against all split player hands.
+     * Each hand is compared individually. If at least one hand wins,
+     * the round result is PLAYER_WINS. If all lose, DEALER_WINS. Otherwise PUSH.
+     */
+    private void dealerPlaySplit(BlackjackGame game) {
+        Deck deck = game.getDeck();
+        Hand dealerHand = game.getDealerHand();
+
+        // Dealer hits on 16 or less (hard or soft), stands on 17+ (hard or soft)
+        while (dealerHand.value() < 17) {
+            if (deck.isEmpty()) {
+                deck.resetAndShuffle();
+                game.setDeck(deck);
+            }
+            dealerHand.addCard(deck.deal());
+        }
+
+        game.setStatus(GameStatus.ROUND_OVER);
+
+        List<Hand> playerHands = game.getPlayerHands();
+        int dealerValue = dealerHand.value();
+        boolean dealerBust = dealerHand.isBust();
+
+        int handWins = 0;
+        int handLosses = 0;
+        int handPushes = 0;
+
+        for (Hand hand : playerHands) {
+            int playerValue = hand.value();
+            boolean playerBust = hand.isBust();
+
+            if (playerBust) {
+                handLosses++;
+            } else if (dealerBust) {
+                handWins++;
+            } else if (playerValue > dealerValue) {
+                handWins++;
+            } else if (dealerValue > playerValue) {
+                handLosses++;
+            } else {
+                handPushes++;
+            }
+        }
+
+        // Determine overall result
+        if (handWins > handLosses) {
+            game.setLastOutcome(RoundOutcome.PLAYER_WINS);
+            game.setLastExplanation(String.format("Split round: %d hand(s) won, %d lost, %d pushed (Dealer: %d).",
+                    handWins, handLosses, handPushes, dealerValue));
+            game.incrementWins();
+        } else if (handLosses > handWins) {
+            game.setLastOutcome(RoundOutcome.DEALER_WINS);
+            game.setLastExplanation(String.format("Split round: %d hand(s) won, %d lost, %d pushed (Dealer: %d).",
+                    handWins, handLosses, handPushes, dealerValue));
+            game.incrementLosses();
+        } else if (handWins > 0) {
+            game.setLastOutcome(RoundOutcome.PUSH);
+            game.setLastExplanation(String.format("Split round push: %d hand(s) won, %d lost, %d pushed (Dealer: %d).",
+                    handWins, handLosses, handPushes, dealerValue));
+            game.incrementPushes();
+        } else {
+            // All pushes
+            game.setLastOutcome(RoundOutcome.PUSH);
+            game.setLastExplanation(String.format("Split round: All %d hand(s) pushed (Dealer: %d).",
+                    handPushes, dealerValue));
             game.incrementPushes();
         }
     }

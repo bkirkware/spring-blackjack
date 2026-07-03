@@ -22,9 +22,23 @@ public class ResponseMapper {
         response.setGameId(game.getGameId());
         response.setStatus(game.getStatus());
 
-        // Player hand
+        // Player hand (active hand)
         GameStateResponse.PlayerHandInfo playerHand = mapPlayerHand(game.getPlayerHand());
         response.setPlayerHand(playerHand);
+        response.setActiveHandIndex(game.getActiveHandIndex());
+
+        // Split hands (additional hands from splitting, exclude the active one that's in playerHand)
+        if (game.hasSplit()) {
+            List<Hand> allHands = game.getPlayerHands();
+            List<GameStateResponse.PlayerHandInfo> splitHandInfos = new ArrayList<>();
+            for (int i = 0; i < allHands.size(); i++) {
+                if (i == game.getActiveHandIndex()) {
+                    continue; // Skip active hand (already in playerHand)
+                }
+                splitHandInfos.add(mapPlayerHand(allHands.get(i)));
+            }
+            response.setSplitHands(splitHandInfos);
+        }
 
         // Dealer hand (hide hole card during player turn)
         GameStateResponse.DealerHandInfo dealerHand = mapDealerHand(game);
@@ -123,6 +137,9 @@ public class ResponseMapper {
             case PLAYER_TURN:
                 actions.add("HIT");
                 actions.add("STAND");
+                if (game.canSplit()) {
+                    actions.add("SPLIT");
+                }
                 break;
             case ROUND_OVER:
                 actions.add("NEW_ROUND");
